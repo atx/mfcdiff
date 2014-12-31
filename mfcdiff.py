@@ -46,7 +46,7 @@ parser.add_argument(
     "-c",
     "--card",
     nargs="?",
-    default="1k",
+    default="4k",
     choices=["1k", "4k"]
 )
 
