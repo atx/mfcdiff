@@ -38,6 +38,12 @@ parser.add_argument(
     help="Use pager to display the output"
 )
 parser.add_argument(
+    "-a",
+    "--ascii",
+    action="store_true",
+    help="Display ASCII instead of hex"
+)
+parser.add_argument(
     nargs=argparse.REMAINDER,
     dest="dumps",
     help="List of .mfd files"
@@ -49,6 +55,7 @@ parser.add_argument(
     default="4k",
     choices=["1k", "4k"]
 )
+
 
 def get_block_number(i, mode):
     return int(i / 16)
@@ -71,7 +78,7 @@ def is_key_block(i, mode):
         else:
             return i % 16 == 15
 
-def get_diff(binaries, mode):
+def get_diff(binaries, mode, asc=False):
     ret = ""
     strings = [""] * len(binaries)
     nblk = 0
@@ -82,7 +89,7 @@ def get_diff(binaries, mode):
 
             strings = [s.strip() for s in strings]
             ret += "%03x | " % (nblk - 1) + \
-                reduce(lambda i, v: i + "| " + v, strings) + "\n"
+                reduce(lambda i, v: i + (" " if asc else "| ") + v, strings) + "\n"
             if nsec != block_to_sec(nblk, mode):
                 nsec = block_to_sec(nblk, mode)
                 ret += "\n"
@@ -96,8 +103,17 @@ def get_diff(binaries, mode):
             attrs = ["bold"]
         if any([x != data[0] for x in data]):
             color = "green"
-        strings = [x + colored("%02x " % d, color, attrs=attrs)
-                for x, d in zip(strings, data)]
+
+        for i, d in enumerate(data):
+            if asc:
+                if d >= 32 and d <= 126:
+                    s = chr(d)
+                else:
+                    s = "."
+            else:
+                s = "%02x " % d
+            strings[i] += colored(s, color, attrs=attrs)
+
     return ret
 
 
@@ -109,7 +125,7 @@ for fname in args.dumps:
     with open(fname, "rb") as f:
         binaries.append(f.read())
 
-diff = get_diff(binaries, args.card)
+diff = get_diff(binaries, args.card, asc=args.ascii)
 if args.pager:
     pager(diff)
 else:
