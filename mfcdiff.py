@@ -44,6 +44,12 @@ parser.add_argument(
     help="Display ASCII instead of hex"
 )
 parser.add_argument(
+    "-s",
+    "--no-space",
+    action="store_true",
+    help="Do not put spaces between bytes"
+)
+parser.add_argument(
     nargs=argparse.REMAINDER,
     dest="dumps",
     help="List of .mfd files"
@@ -78,7 +84,7 @@ def is_key_block(i, mode):
         else:
             return i % 16 == 15
 
-def get_diff(binaries, mode, asc=False):
+def get_diff(binaries, mode, asc=False, space=True):
     ret = ""
     strings = [""] * len(binaries)
     nblk = 0
@@ -99,7 +105,9 @@ def get_diff(binaries, mode, asc=False):
                 else:
                     s = "."
             else:
-                s = "%02x " % d
+                s = "%02x" % d
+            if space:
+                s += " "
             strings[j] += colored(s, color, attrs=attrs)
 
         if nblk != get_block_number(i + 1, mode):
@@ -107,7 +115,7 @@ def get_diff(binaries, mode, asc=False):
 
             strings = [s.strip() for s in strings]
             ret += "%03x | " % (nblk - 1) + \
-                reduce(lambda i, v: i + (" " if asc else "| ") + v, strings) + "\n"
+                reduce(lambda i, v: i + ("| " if space else " ") + v, strings) + "\n"
             if nsec != block_to_sec(nblk, mode):
                 nsec = block_to_sec(nblk, mode)
                 ret += "\n"
@@ -125,7 +133,7 @@ for fname in args.dumps:
     with open(fname, "rb") as f:
         binaries.append(f.read())
 
-diff = get_diff(binaries, args.card, asc=args.ascii)
+diff = get_diff(binaries, args.card, asc=args.ascii, space=(not args.no_space))
 if args.pager:
     pager(diff)
 else:
