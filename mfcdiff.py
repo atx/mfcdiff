@@ -84,8 +84,26 @@ def get_diff(binaries, mode, asc=False):
     nblk = 0
     nsec = 0
     for i, data in enumerate(zip(*binaries)):
-        if nblk != get_block_number(i, mode):
-            nblk = get_block_number(i, mode)
+        color = None
+        attrs = None
+        if is_key_block(nblk, mode):
+            color = "grey"
+            attrs = ["bold"]
+        if any([x != data[0] for x in data]):
+            color = "green"
+
+        for j, d in enumerate(data):
+            if asc:
+                if d >= 32 and d <= 126:
+                    s = chr(d)
+                else:
+                    s = "."
+            else:
+                s = "%02x " % d
+            strings[j] += colored(s, color, attrs=attrs)
+
+        if nblk != get_block_number(i + 1, mode):
+            nblk = get_block_number(i + 1, mode)
 
             strings = [s.strip() for s in strings]
             ret += "%03x | " % (nblk - 1) + \
@@ -95,24 +113,6 @@ def get_diff(binaries, mode, asc=False):
                 ret += "\n"
 
             strings = [""] * len(binaries)
-
-        color = None
-        attrs = None
-        if is_key_block(nblk, mode):
-            color = "grey"
-            attrs = ["bold"]
-        if any([x != data[0] for x in data]):
-            color = "green"
-
-        for i, d in enumerate(data):
-            if asc:
-                if d >= 32 and d <= 126:
-                    s = chr(d)
-                else:
-                    s = "."
-            else:
-                s = "%02x " % d
-            strings[i] += colored(s, color, attrs=attrs)
 
     return ret
 
