@@ -25,6 +25,7 @@
 import argparse
 from termcolor import colored
 from functools import reduce
+from itertools import zip_longest
 from pydoc import pager
 
 parser = argparse.ArgumentParser(
@@ -89,7 +90,7 @@ def get_diff(binaries, mode, asc=False, space=True):
     strings = [""] * len(binaries)
     nblk = 0
     nsec = 0
-    for i, data in enumerate(zip(*binaries)):
+    for i, data in enumerate(zip_longest(*binaries)):
         color = None
         attrs = None
         if is_key_block(nblk, mode):
@@ -100,12 +101,17 @@ def get_diff(binaries, mode, asc=False, space=True):
 
         for j, d in enumerate(data):
             if asc:
-                if d >= 32 and d <= 126:
+                if d == None:
+                    s = " "
+                elif d >= 32 and d <= 126:
                     s = chr(d)
                 else:
                     s = "."
             else:
-                s = "%02x" % d
+                if d == None:
+                    s = "  "
+                else:
+                    s = "%02x" % d
             if space:
                 s += " "
             strings[j] += colored(s, color, attrs=attrs)
@@ -138,4 +144,3 @@ if args.pager:
     pager(diff)
 else:
     print(diff)
-
