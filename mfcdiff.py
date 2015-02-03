@@ -51,6 +51,12 @@ parser.add_argument(
     help="Do not put spaces between bytes"
 )
 parser.add_argument(
+    "-m",
+    "--mad",
+    action="store_true",
+    help="Dump the MAD descriptors"
+)
+parser.add_argument(
     nargs=argparse.REMAINDER,
     dest="dumps",
     help="List of .mfd files"
@@ -74,7 +80,7 @@ def block_to_sec(i, mode):
         if i <= 0x7f:
             return int(i / 4)
         else:
-            return int(i / 16)
+            return int((i - 0x80) / 16) + 32
 
 def is_key_block(i, mode):
     if mode == "1k":
@@ -85,11 +91,23 @@ def is_key_block(i, mode):
         else:
             return i % 16 == 15
 
-def get_diff(binaries, mode, asc=False, space=True):
+def get_mad_descriptors(data, mode):
+    version = 1 if mode == "1k" else 2
+    descs = []
+    for x in [None] + list(range(0x12, 0x30, 2)) + \
+            [None] + list(range(0x402, 0x430, 2)):
+        descs.append(colored("> MAD" if x == None
+                else ("> %02x%02x" % (data[x + 1], data[x])), "yellow"))
+    print(descs)
+    return descs
+
+def get_diff(binaries, mode, asc=False, space=True, mad=False):
     ret = ""
     strings = [""] * len(binaries)
     nblk = 0
     nsec = 0
+    if mad:
+        mads = get_mad_descriptors(binaries[0], mode)
     for i, data in enumerate(zip_longest(*binaries)):
         color = None
         attrs = None
@@ -122,11 +140,15 @@ def get_diff(binaries, mode, asc=False, space=True):
             strings = [s.strip() for s in strings]
             ret += "%03x | " % (nblk - 1) + \
                 reduce(lambda i, v: i + ("| " if space else " ") + v, strings) + "\n"
-            if nsec != block_to_sec(nblk, mode):
-                nsec = block_to_sec(nblk, mode)
-                ret += "\n"
 
             strings = [""] * len(binaries)
+        if nsec != block_to_sec(nblk, mode) or i == 0:
+            nsec = block_to_sec(nblk, mode)
+            if i != 0:
+               ret += "\n"
+            print(nsec)
+            if mad and nsec < len(mads):
+                ret += mads[nsec] + "\n"
 
     return ret
 
@@ -139,7 +161,8 @@ for fname in args.dumps:
     with open(fname, "rb") as f:
         binaries.append(f.read())
 
-diff = get_diff(binaries, args.card, asc=args.ascii, space=(not args.no_space))
+diff = get_diff(binaries, args.card, asc=args.ascii,
+        space=(not args.no_space), mad=args.mad)
 if args.pager:
     pager(diff)
 else:
