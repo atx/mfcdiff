@@ -98,7 +98,6 @@ def get_mad_descriptors(data, mode):
             [None] + list(range(0x402, 0x430, 2)):
         descs.append(colored("> MAD" if x == None
                 else ("> %02x%02x" % (data[x + 1], data[x])), "yellow"))
-    print(descs)
     return descs
 
 def get_diff(binaries, mode, asc=False, space=True, mad=False):
@@ -146,7 +145,6 @@ def get_diff(binaries, mode, asc=False, space=True, mad=False):
             nsec = block_to_sec(nblk, mode)
             if i != 0:
                ret += "\n"
-            print(nsec)
             if mad and nsec < len(mads):
                 ret += mads[nsec] + "\n"
 
