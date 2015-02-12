@@ -69,12 +69,12 @@ class Sector(list):
 
 class Card(list):
 
-    def __init__(self, data, mode):
+    def __init__(self, data):
         self._raw = list(data)
         old = 0
-        mads = Card.get_mad_descriptors(data, mode)
+        mads = Card.get_mad_descriptors(data)
         for i in list(range(64, 32 * 64 + 1, 64)) + \
-                (list(range(2048 + 256, 4096 + 1, 256)) if mode == "4k" else []):
+                list(range(2048 + 256, 4096 + 1, 256)):
             if i >= len(data):
                 break
             self.append(Sector(data[old:i], old, mad=mads[len(self)]))
@@ -87,7 +87,7 @@ class Card(list):
         return self._raw
 
     @staticmethod
-    def get_mad_descriptors(data, mode):
+    def get_mad_descriptors(data):
         descs = []
         for x in [None] + list(range(0x12, 0x30, 2)) + \
                 [None] + list(range(0x402, 0x430, 2)):

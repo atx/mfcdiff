@@ -60,16 +60,9 @@ parser.add_argument(
     dest="dumps",
     help="List of .mfd files"
 )
-parser.add_argument(
-    "-c",
-    "--card",
-    nargs="?",
-    default="4k",
-    choices=["1k", "4k"]
-)
 
-def get_diff(binaries, mode, asc=False, space=True, mad=False):
-    cards = [Card(b, mode) for b in binaries]
+def get_diff(binaries, asc=False, space=True, mad=False):
+    cards = [Card(b) for b in binaries]
     return Differ(asc=asc, space=space, mad=mad).diff(cards)
 
 args = parser.parse_args()
@@ -79,7 +72,7 @@ for fname in args.dumps:
     with open(fname, "rb") as f:
         binaries.append(f.read())
 
-diff = get_diff(binaries, args.card, asc=args.ascii,
+diff = get_diff(binaries, asc=args.ascii,
         space=(not args.no_space), mad=args.mad)
 if args.no_pager:
     print(diff)
