@@ -24,7 +24,6 @@
 
 import argparse
 from termcolor import colored
-from functools import reduce
 from itertools import zip_longest
 from pydoc import pager
 
@@ -69,99 +68,151 @@ parser.add_argument(
     choices=["1k", "4k"]
 )
 
+class Block(list):
 
-def get_block_number(i, mode):
-    return int(i / 16)
+    def __init__(self, data, offset, trailer):
+        self.extend(data)
+        self._trailer = trailer
+        self._offset = offset
 
-def block_to_sec(i, mode):
-    if mode == "1k":
-        return int(i / 4)
-    elif mode == "4k":
-        if i <= 0x7f:
-            return int(i / 4)
-        else:
-            return int((i - 0x80) / 16) + 32
+    def is_trailer(self):
+        return self._trailer
 
-def is_key_block(i, mode):
-    if mode == "1k":
-        return i % 4 == 3
-    elif mode == "4k":
+    def offset(self):
+        return self._offset
+
+class Sector(list):
+
+    def __init__(self, data, offset, mad=None):
+        self._offset = offset
+        self._mad = mad
+        self._blocks = []
+        old = 0
+        for i in range(16, len(data) + 1, 16):
+            self.append(Block(data[old:i], offset + old,
+                Sector.is_trailer(offset + old)))
+            old = i
+
+    def mad(self):
+        return self._mad
+
+    def offset(self):
+        return self._offset
+
+    def blocks(self):
+        return self
+
+    @staticmethod
+    def is_trailer(i):
+        i /= 16
         if i <= 0x7f:
             return i % 4 == 3
         else:
             return i % 16 == 15
 
-def get_mad_descriptors(data, mode):
-    version = 1 if mode == "1k" else 2
-    descs = []
-    for x in [None] + list(range(0x12, 0x30, 2)) + \
-            [None] + list(range(0x402, 0x430, 2)):
-        descs.append(colored("> MAD" if x == None
-                else ("> %02x%02x" % (data[x + 1], data[x])), "yellow"))
-    return descs
+class Card(list):
+
+    def __init__(self, data, mode):
+        self._raw = list(data)
+        old = 0
+        mads = Card.get_mad_descriptors(data, mode)
+        for i in list(range(64, 32 * 64 + 1, 64)) + \
+                (list(range(2048 + 256, 4096 + 1, 256)) if mode == "4k" else []):
+            if i >= len(data):
+                break
+            self.append(Sector(data[old:i], old, mad=mads[len(self)]))
+            old = i
+
+    def sectors(self):
+        return self
+
+    def raw(self):
+        return self._raw
+
+    @staticmethod
+    def get_mad_descriptors(data, mode):
+        descs = []
+        for x in [None] + list(range(0x12, 0x30, 2)) + \
+                [None] + list(range(0x402, 0x430, 2)):
+            if x != None and x >= len(data):
+                break
+            descs.append(
+                    None if x == None else (data[x + 1] << 8 | data[x]))
+        return descs
+
+class Differ():
+
+    def __init__(self, asc=False, space=True, mad=False):
+        self._asc = asc
+        self._space = space
+        self._mad = mad
+
+    def diff_blocks(self, blocks):
+        ret = ""
+        strings = [""] * len(blocks)
+        for bs in zip_longest(*blocks):
+            attrs = []
+            color = None
+            if blocks[0].is_trailer():
+                color = "grey"
+                attrs = ["bold"]
+            if any([x != bs[0] for x in bs]):
+                color = "green"
+            for i, b in enumerate(bs):
+                if self._asc:
+                    if b == None:
+                        s = " "
+                    elif b in range(32, 127):
+                        s = chr(b)
+                    else:
+                        s = "."
+                else:
+                    if b == None:
+                        s = "  "
+                    else:
+                        s = "%02x" % b
+                if self._space:
+                    s += " "
+                strings[i] += \
+                    colored(s, color, attrs=attrs)
+
+        return (("%03x | " if self._space else "%03x ") % (blocks[0].offset() / len(blocks[0]))) + \
+                ("| " if self._space else " ").join(strings) + "\n"
+
+    def diff_sectors(self, sectors):
+        ret = ""
+        if self._mad:
+            madid = sectors[0].mad()
+            if madid:
+                madstring = "> %04x" % madid
+            else:
+                madstring = "> MAD"
+            ret += colored(madstring, "yellow") + "\n"
+        for blocks in zip_longest(*sectors):
+            ret += self.diff_blocks(blocks)
+        return ret
+
+    def diff(self, cards):
+        ret = ""
+        for sectors in zip(*cards):
+            ret += self.diff_sectors(sectors) + "\n"
+        return ret
 
 def get_diff(binaries, mode, asc=False, space=True, mad=False):
-    ret = ""
-    strings = [""] * len(binaries)
-    nblk = 0
-    nsec = 0
-    if mad:
-        mads = get_mad_descriptors(binaries[0], mode)
-    for i, data in enumerate(zip_longest(*binaries)):
-        color = None
-        attrs = None
-        if is_key_block(nblk, mode):
-            color = "grey"
-            attrs = ["bold"]
-        if any([x != data[0] for x in data]):
-            color = "green"
+    cards = [Card(b, mode) for b in binaries]
+    return Differ(asc=asc, space=space, mad=mad).diff(cards)
 
-        for j, d in enumerate(data):
-            if asc:
-                if d == None:
-                    s = " "
-                elif d >= 32 and d <= 126:
-                    s = chr(d)
-                else:
-                    s = "."
-            else:
-                if d == None:
-                    s = "  "
-                else:
-                    s = "%02x" % d
-            if space:
-                s += " "
-            strings[j] += colored(s, color, attrs=attrs)
+if __name__ == "__main__":
+    args = parser.parse_args()
 
-        if nblk != get_block_number(i + 1, mode):
-            nblk = get_block_number(i + 1, mode)
+    binaries = []
+    for fname in args.dumps:
+        with open(fname, "rb") as f:
+            binaries.append(f.read())
 
-            strings = [s.strip() for s in strings]
-            ret += "%03x | " % (nblk - 1) + \
-                reduce(lambda i, v: i + ("| " if space else " ") + v, strings) + "\n"
-
-            strings = [""] * len(binaries)
-        if nsec != block_to_sec(nblk, mode) or i == 0:
-            nsec = block_to_sec(nblk, mode)
-            if i != 0:
-               ret += "\n"
-            if mad and nsec < len(mads):
-                ret += mads[nsec] + "\n"
-
-    return ret
-
-
-
-args = parser.parse_args()
-
-binaries = []
-for fname in args.dumps:
-    with open(fname, "rb") as f:
-        binaries.append(f.read())
-
-diff = get_diff(binaries, args.card, asc=args.ascii,
-        space=(not args.no_space), mad=args.mad)
-if args.pager:
-    pager(diff)
-else:
-    print(diff)
+    diff = get_diff(binaries, args.card, asc=args.ascii,
+            space=(not args.no_space), mad=args.mad)
+    if args.pager:
+        pager(diff)
+    else:
+        print(diff)
