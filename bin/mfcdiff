@@ -29,8 +29,7 @@ from pydoc import pager
 from mfcdiff import *
 
 parser = argparse.ArgumentParser(
-    prog="mfcdiff",
-    usage="mfcdiff <first.mfd> [second.mfd] [third.mfd] ..."
+    prog="mfcdiff"
 )
 parser.add_argument(
     "-p",
@@ -57,7 +56,7 @@ parser.add_argument(
     help="Dump the MAD descriptors"
 )
 parser.add_argument(
-    nargs=argparse.REMAINDER,
+    nargs="+",
     dest="dumps",
     help="List of .mfd files"
 )
