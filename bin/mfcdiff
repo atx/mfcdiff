@@ -1,0 +1,88 @@
+#! /usr/bin/env python3
+
+# The MIT License (MIT)
+# 
+# Copyright (c) 2014 Josef Gajdusek
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+import argparse
+from termcolor import colored
+from itertools import zip_longest
+from pydoc import pager
+from mfcdiff import *
+
+parser = argparse.ArgumentParser(
+    prog="mfcdiff",
+    usage="mfcdiff <first.mfd> [second.mfd] [third.mfd] ..."
+)
+parser.add_argument(
+    "-p",
+    "--pager",
+    action="store_true",
+    help="Use pager to display the output"
+)
+parser.add_argument(
+    "-a",
+    "--ascii",
+    action="store_true",
+    help="Display ASCII instead of hex"
+)
+parser.add_argument(
+    "-s",
+    "--no-space",
+    action="store_true",
+    help="Do not put spaces between bytes"
+)
+parser.add_argument(
+    "-m",
+    "--mad",
+    action="store_true",
+    help="Dump the MAD descriptors"
+)
+parser.add_argument(
+    nargs=argparse.REMAINDER,
+    dest="dumps",
+    help="List of .mfd files"
+)
+parser.add_argument(
+    "-c",
+    "--card",
+    nargs="?",
+    default="4k",
+    choices=["1k", "4k"]
+)
+
+def get_diff(binaries, mode, asc=False, space=True, mad=False):
+    cards = [Card(b, mode) for b in binaries]
+    return Differ(asc=asc, space=space, mad=mad).diff(cards)
+
+args = parser.parse_args()
+
+binaries = []
+for fname in args.dumps:
+    with open(fname, "rb") as f:
+        binaries.append(f.read())
+
+diff = get_diff(binaries, args.card, asc=args.ascii,
+        space=(not args.no_space), mad=args.mad)
+if args.pager:
+    pager(diff)
+else:
+    print(diff)

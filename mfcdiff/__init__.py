@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 # The MIT License (MIT)
 # 
 # Copyright (c) 2014 Josef Gajdusek
@@ -26,47 +24,6 @@ import argparse
 from termcolor import colored
 from itertools import zip_longest
 from pydoc import pager
-
-parser = argparse.ArgumentParser(
-    prog="mfcdiff",
-    usage="mfcdiff <first.mfd> <second.mfd>"
-)
-parser.add_argument(
-    "-p",
-    "--pager",
-    action="store_true",
-    help="Use pager to display the output"
-)
-parser.add_argument(
-    "-a",
-    "--ascii",
-    action="store_true",
-    help="Display ASCII instead of hex"
-)
-parser.add_argument(
-    "-s",
-    "--no-space",
-    action="store_true",
-    help="Do not put spaces between bytes"
-)
-parser.add_argument(
-    "-m",
-    "--mad",
-    action="store_true",
-    help="Dump the MAD descriptors"
-)
-parser.add_argument(
-    nargs=argparse.REMAINDER,
-    dest="dumps",
-    help="List of .mfd files"
-)
-parser.add_argument(
-    "-c",
-    "--card",
-    nargs="?",
-    default="4k",
-    choices=["1k", "4k"]
-)
 
 class Block(list):
 
@@ -197,22 +154,3 @@ class Differ():
         for sectors in zip(*cards):
             ret += self.diff_sectors(sectors) + "\n"
         return ret
-
-def get_diff(binaries, mode, asc=False, space=True, mad=False):
-    cards = [Card(b, mode) for b in binaries]
-    return Differ(asc=asc, space=space, mad=mad).diff(cards)
-
-if __name__ == "__main__":
-    args = parser.parse_args()
-
-    binaries = []
-    for fname in args.dumps:
-        with open(fname, "rb") as f:
-            binaries.append(f.read())
-
-    diff = get_diff(binaries, args.card, asc=args.ascii,
-            space=(not args.no_space), mad=args.mad)
-    if args.pager:
-        pager(diff)
-    else:
-        print(diff)
