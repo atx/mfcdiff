@@ -33,9 +33,9 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument(
     "-p",
-    "--pager",
+    "--no-pager",
     action="store_true",
-    help="Use pager to display the output"
+    help="Do not use pager to display the output"
 )
 parser.add_argument(
     "-a",
@@ -81,7 +81,7 @@ for fname in args.dumps:
 
 diff = get_diff(binaries, args.card, asc=args.ascii,
         space=(not args.no_space), mad=args.mad)
-if args.pager:
-    pager(diff)
-else:
+if args.no_pager:
     print(diff)
+else:
+    pager(diff)
