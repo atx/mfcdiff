@@ -56,23 +56,36 @@ parser.add_argument(
     help="Dump the MAD descriptors"
 )
 parser.add_argument(
+    "-t",
+    "--type",
+    choices = ["1k", "4k", "ul"],
+    default = "4k"
+)
+parser.add_argument(
     nargs="+",
     dest="dumps",
     help="List of .mfd files"
 )
 
-def get_diff(binaries, asc=False, space=True, mad=False):
-    cards = [Card(b) for b in binaries]
+def get_diff(binaries, ctype, asc=False, space=True, mad=False):
+    if ctype in ["1k", "4k"]:
+        cardclass = ClassicCard
+    elif ctype == "ul":
+        cardclass = UltralightCard
+    cards = [cardclass(b) for b in binaries]
     return Differ(asc=asc, space=space, mad=mad).diff(cards)
 
 args = parser.parse_args()
+
+if not args.type in ["1k", "4k"] and args.mad:
+    parser.error("MAD descriptor dump supported only on 1k and 4k cards")
 
 binaries = []
 for fname in args.dumps:
     with open(fname, "rb") as f:
         binaries.append(f.read())
 
-diff = get_diff(binaries, asc=args.ascii,
+diff = get_diff(binaries, args.type, asc=args.ascii,
         space=(not args.no_space), mad=args.mad)
 if args.no_pager:
     print(diff)

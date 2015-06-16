@@ -38,26 +38,55 @@ class Block(list):
     def offset(self):
         return self._offset
 
+class Card(list):
+
+    def __init__(self, data):
+        self._raw = list(data)
+
+    def sectors(self):
+        return self
+
+    def raw(self):
+        return self._raw
+
 class Sector(list):
 
-    def __init__(self, data, offset, mad=None):
+    def __init__(self, data, offset):
         self._offset = offset
-        self._mad = mad
-        self._blocks = []
-        old = 0
-        for i in range(16, len(data) + 1, 16):
-            self.append(Block(data[old:i], offset + old,
-                Sector.is_trailer(offset + old)))
-            old = i
-
-    def mad(self):
-        return self._mad
 
     def offset(self):
         return self._offset
 
     def blocks(self):
         return self
+
+class UltralightSector(Sector):
+
+    def __init__(self, data, offset):
+        super(UltralightSector, self).__init__(data, offset)
+        for x in range(0, len(data), 4):
+            self.append(Block(data[x:x + 4], offset + x, False))
+
+class UltralightCard(Card):
+
+    def __init__(self, data):
+        super(UltralightCard, self).__init__(data)
+        self.append(UltralightSector(data[0:4 * 4], 0))
+        self.append(UltralightSector(data[4 * 4:], 4 * 4))
+
+class ClassicSector(Sector):
+
+    def __init__(self, data, offset, mad=None):
+        super(ClassicSector, self).__init__(data, offset)
+        self._mad = mad
+        old = 0
+        for i in range(16, len(data) + 1, 16):
+            self.append(Block(data[old:i], offset + old,
+                ClassicSector.is_trailer(offset + old)))
+            old = i
+
+    def mad(self):
+        return self._mad
 
     @staticmethod
     def is_trailer(i):
@@ -67,24 +96,18 @@ class Sector(list):
         else:
             return i % 16 == 15
 
-class Card(list):
+class ClassicCard(Card):
 
     def __init__(self, data):
-        self._raw = list(data)
+        super(ClassicCard, self).__init__(data)
         old = 0
-        mads = Card.get_mad_descriptors(data)
+        mads = ClassicCard.get_mad_descriptors(data)
         for i in list(range(64, 32 * 64 + 1, 64)) + \
                 list(range(2048 + 256, 4096 + 1, 256)):
             if i >= len(data):
                 break
-            self.append(Sector(data[old:i], old, mad=mads[len(self)]))
+            self.append(ClassicSector(data[old:i], old, mad=mads[len(self)]))
             old = i
-
-    def sectors(self):
-        return self
-
-    def raw(self):
-        return self._raw
 
     @staticmethod
     def get_mad_descriptors(data):
