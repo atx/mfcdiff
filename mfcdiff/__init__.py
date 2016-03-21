@@ -156,7 +156,7 @@ class Differ():
                 strings[i] += \
                     colored(s, color, attrs=attrs)
 
-        return (("%03x | " if self._space else "%03x ") % (blocks[0].offset() / len(blocks[0]))) + \
+        return (("%03x | " if self._space else "%03x ") % (blocks[0].offset() // len(blocks[0]))) + \
                 ("| " if self._space else " ").join(strings) + "\n"
 
     def diff_sectors(self, sectors):
